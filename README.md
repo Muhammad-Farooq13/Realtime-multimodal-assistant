@@ -5,8 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![CI](https://github.com/Muhammad-Farooq-13/Realtime-multimodal-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Muhammad-Farooq-13/Realtime-multimodal-assistant/actions)
-[![GitHub](https://img.shields.io/badge/GitHub-Muhammad--Farooq--13-181717?logo=github)](https://github.com/Muhammad-Farooq-13)
+[![CI](https://github.com/Muhammad-Farooq13/Realtime-multimodal-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Muhammad-Farooq13/Realtime-multimodal-assistant/actions)
+[![GitHub](https://img.shields.io/badge/GitHub-Muhammad--Farooq13-181717?logo=github)](https://github.com/Muhammad-Farooq13)
 
 > I built this to learn what it actually takes to make a voice assistant *feel* fast. Turns out most of the work is pipeline architecture, not model selection — you can't chain STT → LLM → TTS sequentially and hit sub-2 second responses. This repo is my working solution to that problem.
 
@@ -154,7 +154,7 @@ The pipeline enforces an explicit **2 000 ms end-to-end SLA** (p50 target). Ever
 ### 1 — Clone & install
 
 ```bash
-git clone https://github.com/Muhammad-Farooq-13/Realtime-multimodal-assistant.git
+git clone https://github.com/Muhammad-Farooq13/Realtime-multimodal-assistant.git
 cd Realtime-multimodal-assistant
 
 python -m venv .venv
@@ -405,4 +405,4 @@ MIT © 2026 Muhammad Farooq — see [LICENSE](LICENSE)
 
 ---
 
-Built by [Muhammad Farooq](https://github.com/Muhammad-Farooq-13) · [mfarooqshafee333@gmail.com](mailto:mfarooqshafee333@gmail.com)
+Built by [Muhammad Farooq](https://github.com/Muhammad-Farooq13) · [mfarooqshafee333@gmail.com](mailto:mfarooqshafee333@gmail.com)
