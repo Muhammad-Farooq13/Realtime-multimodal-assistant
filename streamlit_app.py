@@ -232,8 +232,20 @@ with tab2:
 
     # Stage table
     st.subheader("Stage Detail Table")
-    st.dataframe(df_stages.style.background_gradient(subset=["Over Budget %"], cmap="RdYlGn_r"),
-                 use_container_width=True, hide_index=True)
+
+    def _color_over_budget(val: float) -> str:
+        """Return inline CSS colour based on over-budget percentage."""
+        if val >= 30:
+            return "background-color: rgba(220,50,50,0.35)"
+        if val >= 10:
+            return "background-color: rgba(230,160,0,0.35)"
+        return "background-color: rgba(50,180,80,0.25)"
+
+    st.dataframe(
+        df_stages.style.applymap(_color_over_budget, subset=["Over Budget %"]),
+        use_container_width=True,
+        hide_index=True,
+    )
 
     st.divider()
 
