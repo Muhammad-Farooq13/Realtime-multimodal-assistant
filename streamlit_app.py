@@ -62,11 +62,12 @@ with st.sidebar:
     )
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏗️ Architecture",
     "⏱️ Latency Budget",
     "🔌 Circuit Breaker",
     "⚙️ API & Config",
+    "🎙️ Simulate Turn",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -657,3 +658,167 @@ docker compose logs -f app
     st.dataframe(df_stack, use_container_width=True, hide_index=True)
 
     st.caption("Built with FastAPI · faster-whisper · edge-tts · Streamlit · Plotly · GitHub Actions")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — Simulate Turn
+# ══════════════════════════════════════════════════════════════════════════════
+with tab5:
+    st.header("🎙️ Simulate a Pipeline Turn")
+    st.markdown(
+        "Enter a text message (simulating a voice transcript) and configure the "
+        "pipeline parameters. The simulator runs the full latency model — STT, "
+        "Intent Classification, LLM, TTS — and predicts whether the turn stays "
+        "within the E2E budget."
+    )
+    st.markdown("---")
+
+    import random as _random
+    import numpy as _np2
+
+    with st.form("simulate_form"):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            user_text = st.text_input(
+                "Voice transcript (text input)",
+                value="What is the weather like today?",
+                placeholder="Type what a user might say…",
+            )
+            whisper_model = st.selectbox(
+                "Whisper model size",
+                ["tiny", "base", "small", "medium", "large-v3"],
+                index=1,
+            )
+            enable_vision = st.checkbox("Enable vision context", value=False)
+        with col_b:
+            e2e_budget = st.slider("E2E budget (ms)", 500, 4000, total_budget, step=50)
+            llm_temp = st.slider("LLM temperature", 0.0, 1.5, 0.7, step=0.05)
+            tts_enabled = st.checkbox("TTS synthesis enabled", value=True)
+        run_sim = st.form_submit_button("▶ Simulate Turn", type="primary", use_container_width=True)
+
+    if run_sim and user_text.strip():
+        # ── Latency simulation per model size ──────────────────────────────────
+        _stt_base = {"tiny": 180, "base": 380, "small": 550, "medium": 780, "large-v3": 1100}
+        _stt_budget = {"tiny": 250, "base": 400, "small": 600, "medium": 900, "large-v3": 1400}
+
+        _seed = abs(hash(user_text)) % 10000
+        _rng = _random.Random(_seed)
+
+        stt_ms   = _stt_base[whisper_model] + _rng.gauss(0, 30)
+        intent_ms = 28 + _rng.gauss(0, 5)
+        vision_ms = (72 + _rng.gauss(0, 10)) if enable_vision else 0
+        llm_ms    = 480 + _rng.gauss(0, 60) + (len(user_text) * 0.8)
+        tts_ms    = (185 + _rng.gauss(0, 25)) if tts_enabled else 0
+        network_ms = 15 + _rng.gauss(0, 5)
+        total_ms  = stt_ms + intent_ms + vision_ms + llm_ms + tts_ms + network_ms
+
+        within_budget = total_ms <= e2e_budget
+
+        # ── Degradation prediction ─────────────────────────────────────────────
+        if total_ms > e2e_budget * 1.3:
+            deg_level = "TEXT_ONLY_RESPONSE"
+        elif total_ms > e2e_budget * 1.05:
+            deg_level = "PARTIAL_DEGRADATION"
+        elif stt_ms > _stt_budget[whisper_model]:
+            deg_level = "FALLBACK_STT"
+        else:
+            deg_level = "NONE"
+
+        # ── Intent detection (keyword-based) ──────────────────────────────────
+        _intents = {
+            "weather": "weather_query", "temperature": "weather_query",
+            "time": "time_query", "clock": "time_query",
+            "play": "media_control", "music": "media_control", "song": "media_control",
+            "remind": "set_reminder", "alarm": "set_reminder",
+            "search": "web_search", "find": "web_search", "look up": "web_search",
+            "news": "news_query", "headline": "news_query",
+            "call": "phone_call", "text": "send_message",
+        }
+        detected_intent = "general_query"
+        for kw, intent in _intents.items():
+            if kw in user_text.lower():
+                detected_intent = intent
+                break
+        intent_confidence = round(0.75 + _rng.uniform(0, 0.20), 3)
+
+        # Simulated LLM response
+        _responses = {
+            "weather_query": "It's currently 22°C and partly cloudy. Expect light rain this afternoon.",
+            "time_query": "The current time is 3:47 PM.",
+            "media_control": "Playing your Liked Songs playlist on Spotify.",
+            "set_reminder": "Reminder set for tomorrow at 9:00 AM.",
+            "web_search": f'Here are the top results for "{user_text}".',
+            "news_query": "Top headlines: Tech stocks rally, new AI legislation proposed.",
+            "phone_call": "Calling… connecting now.",
+            "send_message": "Message sent.",
+            "general_query": "I'm not sure about that — could you rephrase your question?",
+        }
+        llm_response = _responses[detected_intent]
+
+        # ── Results display ────────────────────────────────────────────────────
+        st.markdown("---")
+
+        if within_budget:
+            st.success(f"### ✅ Within Budget  ({total_ms:.0f} ms / {e2e_budget} ms)")
+        else:
+            st.error(f"### ❌ Over Budget  ({total_ms:.0f} ms / {e2e_budget} ms)")
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("E2E Latency", f"{total_ms:.0f} ms", delta=f"{total_ms - e2e_budget:.0f} ms vs budget")
+        k2.metric("Intent", detected_intent, f"{intent_confidence*100:.0f}% confidence")
+        k3.metric("Degradation", deg_level)
+        k4.metric("TTS", "enabled" if tts_enabled else "skipped")
+
+        st.markdown("---")
+        col_resp, col_stages = st.columns([2, 3])
+
+        with col_resp:
+            st.subheader("🤖 LLM Response")
+            st.info(llm_response)
+            st.caption(f'Transcript: "{user_text}"')
+
+        with col_stages:
+            st.subheader("Stage Breakdown")
+            stages_data = [
+                {"Stage": "Speech-to-Text (Whisper)", "Latency (ms)": round(stt_ms, 1), "Budget (ms)": _stt_budget[whisper_model]},
+                {"Stage": "Intent Classification", "Latency (ms)": round(intent_ms, 1), "Budget (ms)": 30},
+                {"Stage": "Vision Processing", "Latency (ms)": round(vision_ms, 1), "Budget (ms)": 80},
+                {"Stage": "LLM Generation", "Latency (ms)": round(llm_ms, 1), "Budget (ms)": 1300},
+                {"Stage": "TTS Synthesis", "Latency (ms)": round(tts_ms, 1), "Budget (ms)": 200},
+                {"Stage": "Network", "Latency (ms)": round(network_ms, 1), "Budget (ms)": 50},
+            ]
+            df_sim = pd.DataFrame(stages_data)
+            df_sim["Status"] = df_sim.apply(
+                lambda r: "✅" if r["Latency (ms)"] <= r["Budget (ms)"] else "⚠️", axis=1
+            )
+            st.dataframe(df_sim, use_container_width=True, hide_index=True)
+
+        # Waterfall chart
+        st.subheader("Latency Waterfall")
+        import plotly.graph_objects as _pgo
+        wf_stages = [s["Stage"] for s in stages_data if s["Latency (ms)"] > 0]
+        wf_values = [s["Latency (ms)"] for s in stages_data if s["Latency (ms)"] > 0]
+        wf_colors = [
+            "#2ecc71" if v <= b else "#e74c3c"
+            for v, b in [
+                (s["Latency (ms)"], s["Budget (ms)"])
+                for s in stages_data if s["Latency (ms)"] > 0
+            ]
+        ]
+        fig_wf = _pgo.Figure(_pgo.Bar(
+            x=wf_stages, y=wf_values,
+            marker_color=wf_colors,
+            text=[f"{v:.0f} ms" for v in wf_values],
+            textposition="outside",
+        ))
+        fig_wf.add_hline(
+            y=e2e_budget, line_color="red", line_dash="dash",
+            annotation_text=f"Budget: {e2e_budget} ms",
+        )
+        fig_wf.update_layout(
+            yaxis_title="Latency (ms)",
+            margin=dict(t=40, b=20),
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(fig_wf, use_container_width=True)
+        st.caption("Green = within stage budget · Red = over stage budget")
