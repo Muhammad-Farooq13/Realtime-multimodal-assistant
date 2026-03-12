@@ -19,12 +19,12 @@ from src.pipeline.timeout_handler import DegradationLevel
 @pytest.fixture
 def test_app(test_settings):
     """Create a test FastAPI app with mocked services."""
+    from contextlib import asynccontextmanager
+
+    from fastapi import FastAPI
+
     from src.api.app import create_app
-    from unittest.mock import patch
 
-    app = create_app()
-
-    # Bypass real lifespan by pre-populating app.state
     mock_stt = MagicMock()
     mock_stt.transcribe = AsyncMock(
         return_value=TranscriptionResult(text="test query", confidence=0.9, language="en")
@@ -49,9 +49,21 @@ def test_app(test_settings):
         )
     )
 
-    app.state.stt_service = mock_stt
-    app.state.orchestrator = mock_orchestrator
-    app.state.ready = True
+    # Replace the real lifespan (which loads Whisper models) with a mock that
+    # pre-populates app.state without touching any heavy dependencies.
+    @asynccontextmanager
+    async def _mock_lifespan(app: FastAPI):
+        app.state.stt_service = mock_stt
+        app.state.orchestrator = mock_orchestrator
+        # Honour any ready flag pre-set by the test (e.g. ready=False for 503
+        # readiness probe tests).  Default to True for the happy-path tests.
+        if not hasattr(app.state, "ready"):
+            app.state.ready = True
+        yield
+        app.state.ready = False
+
+    app = create_app()
+    app.router.lifespan_context = _mock_lifespan
     return app
 
 

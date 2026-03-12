@@ -19,6 +19,7 @@
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
+- [Streamlit Demo](#streamlit-demo)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Development Guide](#development-guide)
@@ -202,6 +203,37 @@ Services exposed:
 - `http://localhost:9090` — Prometheus
 - `http://localhost:3000` — Grafana (admin/admin)
 
+### 6 — Streamlit demo (no API key required)
+
+```bash
+python demo_bundle.py          # generates data/demo_bundle.pkl (one-time)
+streamlit run streamlit_app.py
+```
+
+Open `http://localhost:8501` in your browser.
+
+---
+
+## Streamlit Demo
+
+An interactive demo that visualises the pipeline internals without requiring API keys or ML models.
+All data is pre-computed and bundled by `demo_bundle.py`.
+
+| Tab | Contents |
+|-----|----------|
+| 🏗️ Architecture | System diagram, pipeline flow, key design decisions |
+| ⏱️ Latency Budget | Per-stage latency distributions (box plots + histograms), budget vs. actual bar chart, P50/P95/P99 analysis |
+| 🔌 Circuit Breaker | Interactive state-machine diagram, failure injection simulator, degradation tier log |
+| ⚙️ API & Config | WebSocket message format, REST endpoints, full settings table, environment variable reference |
+
+```bash
+# Generate fresh demo data
+python demo_bundle.py
+
+# Launch
+streamlit run streamlit_app.py
+```
+
 ---
 
 ## Configuration
@@ -364,11 +396,18 @@ realtime-multimodal-assistant/
 │   └── monitoring/      # Prometheus metrics, OpenTelemetry tracing
 ├── tests/
 │   ├── unit/            # Isolated component tests
-│   └── integration/     # End-to-end pipeline tests
+│   └── integration/     # End-to-end pipeline tests (76 passing)
 ├── scripts/             # Benchmarking, load testing, data generation
 ├── docs/                # Architecture decisions, latency analysis
-├── data/samples/        # Test audio/image files
-└── .github/workflows/   # CI (lint, test, build) + CD (deploy)
+├── data/
+│   ├── demo_bundle.pkl  # Pre-computed Streamlit demo data
+│   └── samples/         # Test audio/image files
+├── .streamlit/
+│   └── config.toml      # Dark purple Streamlit theme
+├── demo_bundle.py       # Generates data/demo_bundle.pkl (no GPU needed)
+├── streamlit_app.py     # 4-tab interactive demo
+├── requirements-ci.txt  # Lean CI dependencies (no heavy ML packages)
+└── .github/workflows/   # CI: lint + test matrix 3.11/3.12 + Docker build
 ```
 
 ---
